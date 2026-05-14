@@ -5,6 +5,7 @@ use x11rb::protocol::Event;
 use x11rb::protocol::xinput::{Device, DeviceId, EventMask, XIEventMask, xi_select_events};
 use x11rb::protocol::xproto::ConnectionExt;
 use x11rb::{connection::Connection, rust_connection::RustConnection};
+use xkeysym::{KeyCode, Keysym, keysym};
 
 pub struct XInputListener {
     conn: RustConnection,
@@ -17,6 +18,11 @@ struct KbdData {
     max_key: u8,
     keysyms: Vec<u32>,
     keysyms_per: u8,
+}
+
+#[derive(Debug)]
+pub struct KeyEvent {
+    pub key_char: char,
 }
 
 impl XInputListener {
@@ -59,17 +65,34 @@ impl XInputListener {
         self.kbd.keysyms_per = reply.keysyms_per_keycode;
     }
 
-    pub fn start_input_listener() -> mpsc::Receiver<u32> {
+    pub fn start_input_listener() -> mpsc::Receiver<KeyEvent> {
         let listener = XInputListener::new();
         let (tx, rx) = mpsc::channel();
         thread::spawn(move || {
             loop {
                 let event = listener.conn.wait_for_event().unwrap();
                 if let Event::XinputKeyPress(e) = event {
-                    tx.send(e.detail).unwrap();
+                    let keysym = keycode_to_key(
+                        e.detail,
+                        u32::from(listener.kbd.first_key),
+                        listener.kbd.keysyms_per,
+                        &listener.kbd.keysyms,
+                    )
+                    .unwrap_or_else(|| Keysym::from(0));
+
+                    let key_event = KeyEvent {
+                        key_char: keysym.key_char().unwrap_or('a'),
+                    };
+                    tx.send(key_event).unwrap();
                 }
             }
         });
         rx
     }
+}
+
+pub fn keycode_to_key(detail: u32, min: u32, per: u8, keysyms: &[u32]) -> Option<Keysym> {
+    let keycode = KeyCode::new(detail);
+    let min_key = KeyCode::new(min);
+    keysym(keycode, 0, min_key, per, keysyms)
 }

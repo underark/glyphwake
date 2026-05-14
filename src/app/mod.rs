@@ -1,13 +1,14 @@
+use crate::input::KeyEvent;
 use ratatui::{DefaultTerminal, Frame};
 use std::sync::mpsc::Receiver;
 
 pub struct App {
-    rx: Receiver<u32>,
+    rx: Receiver<KeyEvent>,
     exit: bool,
 }
 
 impl App {
-    pub fn new(rx: Receiver<u32>) -> Self {
+    pub fn new(rx: Receiver<KeyEvent>) -> Self {
         App { rx, exit: false }
     }
 
@@ -15,7 +16,9 @@ impl App {
         while !self.exit {
             for e in self.rx.try_iter() {
                 println!("{:?}", e);
-                self.exit = true;
+                if e.key_char == 'q' {
+                    self.exit = true;
+                }
             }
             terminal.draw(|frame| self.draw(frame)).unwrap();
         }
