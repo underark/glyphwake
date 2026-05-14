@@ -25,6 +25,9 @@ pub struct KeyEvent {
     pub key_char: char,
 }
 
+// TODO:
+// enum Key {}
+
 impl XInputListener {
     fn new() -> Self {
         let (conn, num) = x11rb::connect(None).unwrap();
@@ -80,6 +83,7 @@ impl XInputListener {
                     )
                     .unwrap_or_else(|| Keysym::from(0));
 
+                    // TODO: get mod keys and use that in keycode_to_key
                     let key_event = KeyEvent {
                         key_char: keysym.key_char().unwrap_or('a'),
                     };

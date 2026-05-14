@@ -1,6 +1,9 @@
 use crate::input::KeyEvent;
 use ratatui::{DefaultTerminal, Frame};
-use std::sync::mpsc::Receiver;
+use std::{
+    sync::mpsc::Receiver,
+    time::{Duration, Instant},
+};
 
 pub struct App {
     rx: Receiver<KeyEvent>,
@@ -13,16 +16,21 @@ impl App {
     }
 
     pub fn run(&mut self, terminal: &mut DefaultTerminal) {
+        let mut last = Instant::now();
         while !self.exit {
-            for e in self.rx.try_iter() {
-                println!("{:?}", e);
-                if e.key_char == 'q' {
-                    self.exit = true;
+            if last.elapsed() >= Duration::from_micros(16) {
+                for e in self.rx.try_iter() {
+                    println!("{:?}", e);
+                    if e.key_char == 'q' {
+                        self.exit = true;
+                    }
                 }
+                terminal.draw(|frame| self.draw(frame)).unwrap();
+                last = Instant::now()
             }
-            terminal.draw(|frame| self.draw(frame)).unwrap();
         }
     }
 
+    // TODO: Add logic for drawing canvas
     fn draw(&self, frame: &mut Frame) {}
 }
