@@ -5,7 +5,7 @@ use x11rb::protocol::Event;
 use x11rb::protocol::xinput::{Device, DeviceId, EventMask, XIEventMask, xi_select_events};
 use x11rb::protocol::xproto::ConnectionExt;
 use x11rb::{connection::Connection, rust_connection::RustConnection};
-use xkeysym::{KeyCode, Keysym, keysym};
+use xkeysym::{KeyCode, Keysym, key, keysym};
 
 pub struct XInputListener {
     conn: RustConnection,
@@ -22,11 +22,31 @@ struct KbdData {
 
 #[derive(Debug)]
 pub struct KeyEvent {
-    pub key_char: char,
+    pub key: Key,
 }
 
-// TODO:
-// enum Key {}
+#[derive(Debug, PartialEq)]
+pub enum Key {
+    Char(char),
+    Shift,
+    Ctrl,
+    Alt,
+}
+
+impl Key {
+    fn from_keysym(value: Keysym) -> Option<Key> {
+        if let Some(c) = value.key_char() {
+            Some(Key::Char(c))
+        } else {
+            match value.raw() {
+                key::Shift_L | key::Shift_R => Some(Key::Shift),
+                key::Control_L | key::Control_R => Some(Key::Ctrl),
+                key::Alt_L | key::Alt_R => Some(Key::Alt),
+                _ => None,
+            }
+        }
+    }
+}
 
 impl XInputListener {
     fn new() -> Self {
@@ -77,17 +97,16 @@ impl XInputListener {
                 if let Event::XinputKeyPress(e) = event {
                     let keysym = keycode_to_key(
                         e.detail,
+                        e.mods.base.try_into().unwrap(),
                         u32::from(listener.kbd.first_key),
                         listener.kbd.keysyms_per,
                         &listener.kbd.keysyms,
                     )
-                    .unwrap_or_else(|| Keysym::from(0));
+                    .unwrap();
 
-                    // TODO: get mod keys and use that in keycode_to_key
-                    let key_event = KeyEvent {
-                        key_char: keysym.key_char().unwrap_or('a'),
+                    if let Some(k) = Key::from_keysym(keysym) {
+                        tx.send(KeyEvent { key: k });
                     };
-                    tx.send(key_event).unwrap();
                 }
             }
         });
@@ -95,8 +114,8 @@ impl XInputListener {
     }
 }
 
-pub fn keycode_to_key(detail: u32, min: u32, per: u8, keysyms: &[u32]) -> Option<Keysym> {
+pub fn keycode_to_key(detail: u32, col: u8, min: u32, per: u8, keysyms: &[u32]) -> Option<Keysym> {
     let keycode = KeyCode::new(detail);
     let min_key = KeyCode::new(min);
-    keysym(keycode, 0, min_key, per, keysyms)
+    keysym(keycode, col, min_key, per, keysyms)
 }

@@ -1,4 +1,4 @@
-use crate::input::KeyEvent;
+use crate::input::{Key, KeyEvent};
 use ratatui::{DefaultTerminal, Frame};
 use std::{
     sync::mpsc::Receiver,
@@ -21,7 +21,7 @@ impl App {
             if last.elapsed() >= Duration::from_micros(16) {
                 for e in self.rx.try_iter() {
                     println!("{:?}", e);
-                    if e.key_char == 'q' {
+                    if e.key == Key::Char('q') {
                         self.exit = true;
                     }
                 }
