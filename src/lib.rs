@@ -1,5 +1,7 @@
 pub mod app;
 pub mod input;
+pub mod render;
+pub mod state;
 
 use crate::app::App;
 use crate::input::XInputListener;

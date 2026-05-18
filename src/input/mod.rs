@@ -1,5 +1,6 @@
 use std::sync::mpsc;
 use std::thread;
+use std::time::Instant;
 
 use x11rb::protocol::Event;
 use x11rb::protocol::xinput::{Device, DeviceId, EventMask, XIEventMask, xi_select_events};
@@ -20,12 +21,13 @@ struct KbdData {
     keysyms_per: u8,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct KeyEvent {
     pub key: Key,
+    pub time: Instant,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Key {
     Char(char),
     Shift,
@@ -105,7 +107,11 @@ impl XInputListener {
                     .unwrap();
 
                     if let Some(k) = Key::from_keysym(keysym) {
-                        tx.send(KeyEvent { key: k });
+                        tx.send(KeyEvent {
+                            key: k,
+                            time: Instant::now(),
+                        })
+                        .unwrap();
                     };
                 }
             }
