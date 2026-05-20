@@ -1,38 +1,37 @@
-use crate::{
-    input::{Key, KeyEvent},
-    render::Renderer,
-    state::AppState,
-};
+use crate::input::{Key, KeyEvent};
+use crate::mode::{PulseRenderer, RenderMode};
 use ratatui::{DefaultTerminal, Frame};
 use std::{
     sync::mpsc::Receiver,
     time::{Duration, Instant},
 };
 
-pub struct App {
+pub struct App<R: RenderMode> {
     rx: Receiver<KeyEvent>,
     exit: bool,
-    state: AppState,
-    renderer: Renderer,
+    mode: R,
 }
 
-impl App {
-    pub fn new(rx: Receiver<KeyEvent>) -> Self {
+// TODO: Move this implementation to the mode module under impl PulseRenderer
+impl App<PulseRenderer> {
+    pub fn new_pulse(rx: Receiver<KeyEvent>) -> Self {
         App {
             rx,
             exit: false,
-            state: AppState::default(),
-            renderer: Renderer::default(),
+            mode: PulseRenderer::default(),
         }
     }
+}
 
+impl<R: RenderMode> App<R> {
     pub fn run(&mut self, terminal: &mut DefaultTerminal) {
         let mut last = Instant::now();
         while !self.exit {
             if last.elapsed() >= Duration::from_millis(16) {
                 let events: Vec<KeyEvent> = self.rx.try_iter().collect();
-                self.handle_events(events);
-                self.state.update();
+                self.check_keys(&events);
+                self.mode.handle_events(events);
+                self.mode.update();
                 terminal.draw(|frame| self.draw(frame)).unwrap();
                 last = Instant::now()
             }
@@ -40,19 +39,14 @@ impl App {
     }
 
     fn draw(&self, frame: &mut Frame) {
-        self.renderer.draw_scene(frame);
+        self.mode.render(frame);
     }
 
-    fn handle_events(&mut self, events: Vec<KeyEvent>) {
+    fn check_keys(&mut self, events: &Vec<KeyEvent>) {
         for e in events {
             if e.key == Key::Char('q') {
                 self.exit = true;
             }
-            self.new_object();
         }
-    }
-
-    fn new_object(&mut self) {
-        self.state.add();
     }
 }
