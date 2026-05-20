@@ -33,18 +33,21 @@ pub enum Key {
     Shift,
     Ctrl,
     Alt,
+    Unknown,
 }
 
 impl Key {
-    fn from_keysym(value: Keysym) -> Option<Key> {
-        if let Some(c) = value.key_char() {
-            Some(Key::Char(c))
+    fn from_keysym(value: Option<Keysym>) -> Key {
+        let Some(k) = value else { return Key::Unknown };
+
+        if let Some(c) = k.key_char() {
+            Key::Char(c)
         } else {
-            match value.raw() {
-                key::Shift_L | key::Shift_R => Some(Key::Shift),
-                key::Control_L | key::Control_R => Some(Key::Ctrl),
-                key::Alt_L | key::Alt_R => Some(Key::Alt),
-                _ => None,
+            match k.raw() {
+                key::Shift_L | key::Shift_R => Key::Shift,
+                key::Control_L | key::Control_R => Key::Ctrl,
+                key::Alt_L | key::Alt_R => Key::Alt,
+                _ => Key::Unknown,
             }
         }
     }
@@ -103,16 +106,14 @@ impl XInputListener {
                         u32::from(listener.kbd.first_key),
                         listener.kbd.keysyms_per,
                         &listener.kbd.keysyms,
-                    )
-                    .unwrap();
+                    );
 
-                    if let Some(k) = Key::from_keysym(keysym) {
-                        tx.send(KeyEvent {
-                            key: k,
-                            time: Instant::now(),
-                        })
-                        .unwrap();
-                    };
+                    let k = Key::from_keysym(keysym);
+                    tx.send(KeyEvent {
+                        key: k,
+                        time: Instant::now(),
+                    })
+                    .unwrap();
                 }
             }
         });
