@@ -1,16 +1,10 @@
-use std::{panic::set_hook, process::exit};
+use std::panic::{set_hook, take_hook};
 
 fn main() {
-    set_hook(Box::new(|ph| {
+    let hook = take_hook();
+    set_hook(Box::new(move |ph| {
         ratatui::restore();
-        println!(
-            "Panic occured at {:?}: {:?}",
-            ph.location().unwrap(),
-            // There is a compatibility issue with older (pre-2018 Rust) code here -- consider
-            // fixing
-            ph.payload().downcast_ref::<&str>()
-        );
-        exit(1);
+        hook(ph);
     }));
 
     glyphwake::enter();

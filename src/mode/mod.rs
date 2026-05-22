@@ -1,15 +1,24 @@
-use ratatui::{Frame, widgets::canvas::Circle};
+use std::time::{Duration, Instant};
 
-use crate::{input::KeyEvent, render::draw_scene};
+use crate::{
+    input::KeyEvent,
+    render::{Renderable, draw_scene},
+};
+use ratatui::{Frame, style::Color, widgets::canvas::Circle, widgets::canvas::Shape};
 
 pub trait RenderMode {
     fn render(&self, frame: &mut Frame);
-    fn handle_events(&mut self, e: Vec<KeyEvent>);
-    fn update(&mut self);
+    fn handle_events(&mut self, e: &[KeyEvent]);
+    fn prune(&mut self);
 }
 
 pub struct PulseRenderer {
-    objects: Vec<Circle>,
+    objects: Vec<Pulse>,
+}
+
+struct Pulse {
+    birth_time: Instant,
+    duration: u8,
 }
 
 impl PulseRenderer {
@@ -19,23 +28,11 @@ impl PulseRenderer {
         }
     }
 
-    fn add(&mut self) {
-        self.objects.push(Circle {
-            x: 100.0,
-            y: 100.0,
-            radius: 5.0,
-            color: ratatui::style::Color::Yellow,
+    fn add_pulse(&mut self, birth_time: Instant, duration: u8) {
+        self.objects.push(Pulse {
+            birth_time,
+            duration,
         });
-    }
-
-    fn grow_radius(&mut self) {
-        for o in self.objects.iter_mut() {
-            o.radius += 1.0;
-        }
-    }
-
-    fn prune(&mut self) {
-        self.objects.retain(|o| o.radius <= 200.0);
     }
 }
 
@@ -44,15 +41,38 @@ impl RenderMode for PulseRenderer {
         draw_scene(frame, &self.objects);
     }
 
-    fn handle_events(&mut self, events: Vec<KeyEvent>) {
+    fn handle_events(&mut self, events: &[KeyEvent]) {
         for _ in events {
-            self.add();
+            self.add_pulse(Instant::now(), 5);
         }
     }
 
-    fn update(&mut self) {
-        self.grow_radius();
-        self.prune();
+    fn prune(&mut self) {
+        self.objects.retain(|p| {
+            let elapsed = p.birth_time.elapsed();
+            let duration = Duration::from_secs(p.duration.into());
+            elapsed.saturating_sub(duration) == Duration::ZERO
+        });
+    }
+}
+
+impl Renderable for Pulse {
+    fn to_shape(&self, x: f64, y: f64) -> impl Shape {
+        Circle {
+            x,
+            y,
+            radius: self.ease_out_circ() * 150.0,
+            color: Color::Red,
+        }
+    }
+}
+
+impl Pulse {
+    fn ease_out_circ(&self) -> f64 {
+        let elapsed = self.birth_time.elapsed();
+        let duration = Duration::from_secs(self.duration.into());
+        let normalized = elapsed.div_duration_f64(duration);
+        (1.0 - (normalized - 1.0).powi(2)).sqrt()
     }
 }
 
