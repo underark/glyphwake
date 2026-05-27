@@ -20,4 +20,5 @@ pub fn draw_scene(frame: &mut Frame, objects: &Vec<impl Renderable>) {
 
 pub trait Renderable {
     fn to_shape(&self, x: f64, y: f64) -> impl Shape;
+    fn normalize(&self) -> f64;
 }

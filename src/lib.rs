@@ -1,6 +1,7 @@
 pub mod app;
 pub mod backend;
 pub mod input;
+pub mod math;
 pub mod mode;
 pub mod render;
 

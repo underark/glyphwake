@@ -1,5 +1,7 @@
 // TODO: look into using clamp to apply max values
 use crate::app::AppState;
+use crate::math::ease_out_circ;
+use crate::math::reciprocal_decay;
 use crate::mode::RenderMode;
 use crate::render::Renderable;
 use crate::render::draw_scene;
@@ -16,7 +18,34 @@ pub struct PulseRenderer {
 #[derive(Debug)]
 struct Pulse {
     birth_time: Instant,
-    duration: u64,
+    duration: f64,
+}
+
+impl Renderable for Pulse {
+    fn to_shape(&self, x: f64, y: f64) -> impl Shape {
+        Circle {
+            x,
+            y,
+            radius: ease_out_circ(self.normalize()) * 400.0,
+            color: Color::Red,
+        }
+    }
+
+    fn normalize(&self) -> f64 {
+        let elapsed = self.birth_time.elapsed();
+        let duration = Duration::from_secs_f64(self.duration);
+        elapsed.div_duration_f64(duration)
+    }
+}
+
+impl Pulse {
+    fn from(s: &AppState) -> Pulse {
+        let duration = reciprocal_decay(s.wpm.into());
+        Pulse {
+            birth_time: Instant::now(),
+            duration,
+        }
+    }
 }
 
 impl PulseRenderer {
@@ -44,37 +73,9 @@ impl RenderMode for PulseRenderer {
     fn prune(&mut self) {
         self.objects.retain(|p| {
             let elapsed = p.birth_time.elapsed();
-            let duration = Duration::from_secs(p.duration);
+            let duration = Duration::from_secs_f64(p.duration);
             elapsed.saturating_sub(duration) == Duration::ZERO
         });
-    }
-}
-
-impl Renderable for Pulse {
-    fn to_shape(&self, x: f64, y: f64) -> impl Shape {
-        Circle {
-            x,
-            y,
-            radius: self.ease_out_circ() * 400.0,
-            color: Color::Red,
-        }
-    }
-}
-
-impl Pulse {
-    fn ease_out_circ(&self) -> f64 {
-        let elapsed = self.birth_time.elapsed();
-        let duration = Duration::from_secs(self.duration);
-        let normalized = elapsed.div_duration_f64(duration);
-        (1.0 - (normalized - 1.0).powi(2)).sqrt()
-    }
-
-    fn from(s: &AppState) -> Pulse {
-        let duration = 10 / (1 + s.wpm / 50);
-        Pulse {
-            birth_time: Instant::now(),
-            duration: duration.into(),
-        }
     }
 }
 
