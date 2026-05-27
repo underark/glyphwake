@@ -14,6 +14,7 @@ use std::time::Instant;
 
 pub struct PulseRenderer {
     objects: Vec<Pulse>,
+    next: Instant,
 }
 
 #[derive(Debug)]
@@ -42,7 +43,7 @@ impl Renderable for Pulse {
 
 impl Pulse {
     fn from(s: &AppState) -> Pulse {
-        let duration = reciprocal_decay(s.wpm.into(), 10.0, 50.0);
+        let duration = reciprocal_decay(s.wpm.into(), 10.0, 5.0);
         let max_radius = quadratic(s.wpm.into()).clamp(100.0, 400.0);
         Pulse {
             birth_time: Instant::now(),
@@ -56,12 +57,17 @@ impl PulseRenderer {
     pub fn new() -> Self {
         Self {
             objects: Vec::new(),
+            next: Instant::now(),
         }
     }
 
     fn add_pulse(&mut self, s: &AppState) {
         let p = Pulse::from(s);
         self.objects.push(p);
+    }
+
+    fn next_is_ready(&self) -> bool {
+        self.next.elapsed() > Duration::from_secs_f64(0.0)
     }
 }
 
@@ -71,7 +77,16 @@ impl RenderMode for PulseRenderer {
     }
 
     fn handle_events(&mut self, state: &AppState) {
-        self.add_pulse(state);
+        if self.next_is_ready() {
+            self.add_pulse(state);
+            self.next = Instant::now()
+                .checked_add(Duration::from_secs_f64(reciprocal_decay(
+                    state.wpm.into(),
+                    5.0,
+                    2.5,
+                )))
+                .unwrap();
+        }
     }
 
     fn prune(&mut self) {

@@ -73,6 +73,6 @@ impl<R: RenderMode> App<R> {
 
     fn prune(&mut self) {
         self.events
-            .retain(|e| e.time.elapsed() <= Duration::from_secs(10));
+            .retain(|e| e.time.elapsed() <= Duration::from_secs(5));
     }
 }
