@@ -1,7 +1,6 @@
 use crate::input::{Key, KeyEvent};
 use crate::mode::{PulseRenderer, RenderMode};
 use ratatui::{DefaultTerminal, Frame};
-use std::thread::sleep;
 use std::{
     sync::mpsc::Receiver,
     time::{Duration, Instant},
@@ -14,9 +13,9 @@ pub struct App<R: RenderMode> {
     mode: R,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct AppState {
-    pub wpm: u64,
+    pub wpm: u32,
 }
 
 // TODO: Move this implementation to the mode module under impl PulseRenderer
@@ -35,16 +34,17 @@ impl<R: RenderMode> App<R> {
     pub fn run(&mut self, terminal: &mut DefaultTerminal) {
         let mut last = Instant::now();
         while !self.exit {
-            if last.elapsed() >= Duration::from_millis(16) {
+            if last.elapsed() >= Duration::from_secs(1) {
                 let events: Vec<KeyEvent> = self.rx.try_iter().collect();
                 self.check_keys(&events);
                 self.store_event(&events);
-                self.mode.handle_events(&events);
-                self.mode.prune();
-                terminal.draw(|frame| self.draw(frame)).unwrap();
+                let state = self.extract_state();
+                self.mode.handle_events(&state);
                 last = Instant::now()
             }
-            sleep(Duration::from_millis(2));
+            self.mode.prune();
+            self.prune();
+            terminal.draw(|frame| self.draw(frame)).unwrap();
         }
     }
 
@@ -62,5 +62,16 @@ impl<R: RenderMode> App<R> {
 
     fn store_event(&mut self, events: &[KeyEvent]) {
         self.events.extend_from_slice(events);
+    }
+
+    fn extract_state(&self) -> AppState {
+        let len = self.events.len() as u32;
+        let wpm = (len / 5) * (60 / 10);
+        AppState { wpm }
+    }
+
+    fn prune(&mut self) {
+        self.events
+            .retain(|e| e.time.elapsed() <= Duration::from_secs(10));
     }
 }

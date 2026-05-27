@@ -1,14 +1,15 @@
+// TODO: look into using clamp to apply max values
 use std::time::{Duration, Instant};
 
 use crate::{
-    input::KeyEvent,
+    app::AppState,
     render::{Renderable, draw_scene},
 };
 use ratatui::{Frame, style::Color, widgets::canvas::Circle, widgets::canvas::Shape};
 
 pub trait RenderMode {
     fn render(&self, frame: &mut Frame);
-    fn handle_events(&mut self, e: &[KeyEvent]);
+    fn handle_events(&mut self, s: &AppState);
     fn prune(&mut self);
 }
 
@@ -16,9 +17,10 @@ pub struct PulseRenderer {
     objects: Vec<Pulse>,
 }
 
+#[derive(Debug)]
 struct Pulse {
     birth_time: Instant,
-    duration: u8,
+    duration: u64,
 }
 
 impl PulseRenderer {
@@ -28,11 +30,9 @@ impl PulseRenderer {
         }
     }
 
-    fn add_pulse(&mut self, birth_time: Instant, duration: u8) {
-        self.objects.push(Pulse {
-            birth_time,
-            duration,
-        });
+    fn add_pulse(&mut self, s: &AppState) {
+        let p = Pulse::from(s);
+        self.objects.push(p);
     }
 }
 
@@ -41,16 +41,14 @@ impl RenderMode for PulseRenderer {
         draw_scene(frame, &self.objects);
     }
 
-    fn handle_events(&mut self, events: &[KeyEvent]) {
-        for _ in events {
-            self.add_pulse(Instant::now(), 5);
-        }
+    fn handle_events(&mut self, state: &AppState) {
+        self.add_pulse(state);
     }
 
     fn prune(&mut self) {
         self.objects.retain(|p| {
             let elapsed = p.birth_time.elapsed();
-            let duration = Duration::from_secs(p.duration.into());
+            let duration = Duration::from_secs(p.duration);
             elapsed.saturating_sub(duration) == Duration::ZERO
         });
     }
@@ -61,7 +59,7 @@ impl Renderable for Pulse {
         Circle {
             x,
             y,
-            radius: self.ease_out_circ() * 150.0,
+            radius: self.ease_out_circ() * 400.0,
             color: Color::Red,
         }
     }
@@ -70,9 +68,17 @@ impl Renderable for Pulse {
 impl Pulse {
     fn ease_out_circ(&self) -> f64 {
         let elapsed = self.birth_time.elapsed();
-        let duration = Duration::from_secs(self.duration.into());
+        let duration = Duration::from_secs(self.duration);
         let normalized = elapsed.div_duration_f64(duration);
         (1.0 - (normalized - 1.0).powi(2)).sqrt()
+    }
+
+    fn from(s: &AppState) -> Pulse {
+        let duration = 10 / (1 + s.wpm / 50);
+        Pulse {
+            birth_time: Instant::now(),
+            duration: duration.into(),
+        }
     }
 }
 
