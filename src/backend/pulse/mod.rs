@@ -1,6 +1,7 @@
 // TODO: look into using clamp to apply max values
 use crate::app::AppState;
 use crate::math::ease_out_circ;
+use crate::math::quadratic;
 use crate::math::reciprocal_decay;
 use crate::mode::RenderMode;
 use crate::render::Renderable;
@@ -19,6 +20,7 @@ pub struct PulseRenderer {
 struct Pulse {
     birth_time: Instant,
     duration: f64,
+    max_radius: f64,
 }
 
 impl Renderable for Pulse {
@@ -26,7 +28,7 @@ impl Renderable for Pulse {
         Circle {
             x,
             y,
-            radius: ease_out_circ(self.normalize()) * 400.0,
+            radius: ease_out_circ(self.normalize()) * self.max_radius,
             color: Color::Red,
         }
     }
@@ -40,10 +42,12 @@ impl Renderable for Pulse {
 
 impl Pulse {
     fn from(s: &AppState) -> Pulse {
-        let duration = reciprocal_decay(s.wpm.into());
+        let duration = reciprocal_decay(s.wpm.into(), 10.0, 50.0);
+        let max_radius = quadratic(s.wpm.into()).clamp(100.0, 400.0);
         Pulse {
             birth_time: Instant::now(),
             duration,
+            max_radius,
         }
     }
 }
