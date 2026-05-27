@@ -1,5 +1,6 @@
+use crate::backend::pulse::PulseRenderer;
 use crate::input::{Key, KeyEvent};
-use crate::mode::{PulseRenderer, RenderMode};
+use crate::mode::RenderMode;
 use ratatui::{DefaultTerminal, Frame};
 use std::{
     sync::mpsc::Receiver,
