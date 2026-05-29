@@ -1,3 +1,4 @@
+use crate::animation::Animation;
 // TODO: look into using clamp to apply max values
 use crate::app::AppState;
 use crate::math::ease_out_circ;
@@ -13,43 +14,31 @@ use std::time::Duration;
 use std::time::Instant;
 
 pub struct PulseRenderer {
-    objects: Vec<Pulse>,
+    objects: Vec<Animation<Pulse>>,
     next: Instant,
 }
 
 #[derive(Debug)]
 struct Pulse {
-    birth_time: Instant,
-    duration: f64,
     max_radius: f64,
 }
 
 impl Renderable for Pulse {
-    fn to_shape(&self, x: f64, y: f64) -> impl Shape {
+    fn to_shape(&self, normalized: f64) -> impl Shape {
         Circle {
-            x,
-            y,
-            radius: ease_out_circ(self.normalize()) * self.max_radius,
+            // TODO: Move this to some kind of config
+            x: 400.0,
+            y: 400.0,
+            radius: ease_out_circ(normalized) * self.max_radius,
             color: Color::Red,
         }
-    }
-
-    fn normalize(&self) -> f64 {
-        let elapsed = self.birth_time.elapsed();
-        let duration = Duration::from_secs_f64(self.duration);
-        elapsed.div_duration_f64(duration)
     }
 }
 
 impl Pulse {
     fn from(s: &AppState) -> Pulse {
-        let duration = reciprocal_decay(s.wpm.into(), 10.0, 5.0);
         let max_radius = quadratic(s.wpm.into()).clamp(100.0, 400.0);
-        Pulse {
-            birth_time: Instant::now(),
-            duration,
-            max_radius,
-        }
+        Pulse { max_radius }
     }
 }
 
@@ -63,17 +52,24 @@ impl PulseRenderer {
 
     fn add_pulse(&mut self, s: &AppState) {
         let p = Pulse::from(s);
-        self.objects.push(p);
+        let duration = reciprocal_decay(s.wpm.into(), 10.0, 5.0);
+        let animation = Animation::new(p, duration);
+        self.objects.push(animation);
     }
 
     fn next_is_ready(&self) -> bool {
         self.next.elapsed() > Duration::from_secs_f64(0.0)
     }
+
+    fn to_shapes(&self) -> Vec<impl Shape> {
+        self.objects.iter().map(|a| a.to_shape()).collect()
+    }
 }
 
 impl RenderMode for PulseRenderer {
     fn render(&self, frame: &mut Frame) {
-        draw_scene(frame, &self.objects);
+        let objects = self.to_shapes();
+        draw_scene(frame, &objects);
     }
 
     fn handle_events(&mut self, state: &AppState) {
@@ -90,11 +86,7 @@ impl RenderMode for PulseRenderer {
     }
 
     fn prune(&mut self) {
-        self.objects.retain(|p| {
-            let elapsed = p.birth_time.elapsed();
-            let duration = Duration::from_secs_f64(p.duration);
-            elapsed.saturating_sub(duration) == Duration::ZERO
-        });
+        self.objects.retain(|p| p.is_ongoing());
     }
 }
 

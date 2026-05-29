@@ -1,5 +1,6 @@
 use crate::{app::App, mode::RenderMode};
 
+pub mod animation;
 pub mod app;
 pub mod backend;
 pub mod input;
