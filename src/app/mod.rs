@@ -1,5 +1,5 @@
 use crate::backend::pulse::PulseRenderer;
-use crate::input::{Key, KeyEvent};
+use crate::input::{self, Key, KeyEvent, XInputListener};
 use crate::mode::RenderMode;
 use ratatui::{DefaultTerminal, Frame};
 use std::{
@@ -32,6 +32,15 @@ impl App<PulseRenderer> {
 }
 
 impl<R: RenderMode> App<R> {
+    pub fn new(r: R) -> Self {
+        Self {
+            rx: XInputListener::start_input_listener(),
+            exit: false,
+            events: vec![],
+            mode: r,
+        }
+    }
+
     pub fn run(&mut self, terminal: &mut DefaultTerminal) {
         let mut last = Instant::now();
         while !self.exit {

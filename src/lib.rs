@@ -1,3 +1,5 @@
+use crate::{app::App, mode::RenderMode};
+
 pub mod app;
 pub mod backend;
 pub mod input;
@@ -5,11 +7,7 @@ pub mod math;
 pub mod mode;
 pub mod render;
 
-use crate::app::App;
-use crate::input::XInputListener;
-
-pub fn enter() {
-    let listener = XInputListener::start_input_listener();
-    let mut app = App::new_pulse(listener);
+pub fn enter(mode: impl RenderMode) {
+    let mut app = App::new(mode);
     ratatui::run(|terminal| app.run(terminal));
 }
